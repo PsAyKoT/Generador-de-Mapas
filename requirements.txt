@@ -1,0 +1,5 @@
+streamlit
+osmnx
+matplotlib
+geopy
+scikit-learn
