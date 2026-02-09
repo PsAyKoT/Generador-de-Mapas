@@ -71,8 +71,8 @@ def extraer_datos_pdf(uploaded_file):
     return pd.DataFrame(data)
 
 def geolocalizar_puntos(df, api_delay):
-    """Convierte direcciones en coordenadas Lat/Lon."""
-    geolocator = Nominatim(user_agent="ruta_sevilla_app_master_fix")
+    """Convierte direcciones en coordenadas Lat/Lon LIMITADO A SEVILLA."""
+    geolocator = Nominatim(user_agent="ruta_sevilla_app_strict")
     geocode = RateLimiter(geolocator.geocode, min_delay_seconds=api_delay)
     
     coordenadas = []
@@ -80,16 +80,27 @@ def geolocalizar_puntos(df, api_delay):
     total = len(df)
     status_text = st.empty()
     
+    # --- CANDADO GEOGRÁFICO (BOUNDING BOX SEVILLA) ---
+    # Definimos un recuadro que cubre solo Sevilla Capital y alrededores cercanos
+    # Formato: (Lat Norte, Lon Oeste), (Lat Sur, Lon Este) o lista de puntos esquinas
+    viewbox_sevilla = [
+        (37.4600, -6.0500), # Esquina Noroeste (Santiponce/Estadio Olímpico)
+        (37.3000, -5.8500)  # Esquina Sureste (Montequinto/Bellavista)
+    ]
+    
     for i, row in df.iterrows():
-        # Construir query. Importante: Añadir ciudad y país
+        # Construir query forzando Sevilla, España
         query = f"{row['calle']}, {row['detalle']}, Sevilla, España"
+        # Limpieza de palabras que confunden al buscador
         query_clean = query.replace("Frente", "").replace("Esq", "").replace("Prox", "").replace("(", "").replace(")", "")
         
         try:
-            loc = geocode(query_clean)
-            # Si falla con el número, intentar solo con la calle
+            # Intento 1: Dirección completa con VIEWBOX y BOUNDED=TRUE
+            loc = geocode(query_clean, viewbox=viewbox_sevilla, bounded=True)
+            
+            # Intento 2: Solo calle (si falla el número) manteniendo el límite
             if not loc: 
-                loc = geocode(f"{row['calle']}, Sevilla, España")
+                loc = geocode(f"{row['calle']}, Sevilla, España", viewbox=viewbox_sevilla, bounded=True)
             
             if loc: 
                 coordenadas.append((loc.latitude, loc.longitude, row['calle'], row['detalle']))
@@ -116,11 +127,14 @@ def optimizar_ruta(df_geo, inicio_str=None, fin_str=None):
     ruta = []
     geolocator = Nominatim(user_agent="ruta_start_end")
     
+    # Bounding box también para inicio/fin manuales
+    viewbox_sevilla = [(37.4600, -6.0500), (37.3000, -5.8500)]
+
     # Gestionar Punto de Inicio
     actual = puntos[0]
     if inicio_str:
         try:
-            loc = geolocator.geocode(f"{inicio_str}, Sevilla, España")
+            loc = geolocator.geocode(f"{inicio_str}, Sevilla, España", viewbox=viewbox_sevilla, bounded=True)
             if loc: actual = {'lat': loc.latitude, 'lon': loc.longitude, 'calle': f"[INICIO] {inicio_str}", 'detalle': ''}
         except: pass
     
@@ -128,7 +142,7 @@ def optimizar_ruta(df_geo, inicio_str=None, fin_str=None):
     final = None
     if fin_str:
         try:
-            loc = geolocator.geocode(f"{fin_str}, Sevilla, España")
+            loc = geolocator.geocode(f"{fin_str}, Sevilla, España", viewbox=viewbox_sevilla, bounded=True)
             if loc: final = {'lat': loc.latitude, 'lon': loc.longitude, 'calle': f"[FINAL] {fin_str}", 'detalle': ''}
         except: pass
 
