@@ -1,5 +1,10 @@
-
 streamlit
+pandas
+pdfplumber
+geopy
+folium
+streamlit-folium
+fpdf
 osmnx
 matplotlib
-scikit-learn
+networkx
