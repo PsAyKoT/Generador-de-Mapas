@@ -72,7 +72,7 @@ def extraer_datos_pdf(uploaded_file):
 
 def geolocalizar_puntos(df, api_delay):
     """Convierte direcciones en coordenadas Lat/Lon."""
-    geolocator = Nominatim(user_agent="ruta_sevilla_app_master_clean")
+    geolocator = Nominatim(user_agent="ruta_sevilla_app_master_fix")
     geocode = RateLimiter(geolocator.geocode, min_delay_seconds=api_delay)
     
     coordenadas = []
@@ -188,7 +188,7 @@ def generar_pdf_listado(df):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "Hoja de Ruta Optimizada", 0, 1, 'C') # Prefijo eliminado
+    pdf.cell(0, 10, "Hoja de Ruta Optimizada", 0, 1, 'C')
     pdf.ln(5)
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(220, 220, 220)
@@ -249,7 +249,7 @@ def crear_mapa_atlas(G, df, mostrar_nombres=True):
 
             ax.set_title(title, fontsize=18, fontweight='bold', pad=10)
             
-            # Etiquetas de calles inteligentes (solo las visibles en el zoom actual)
+            # Etiquetas de calles inteligentes
             if mostrar_nombres:
                 seen_names = set()
                 for _, edge in ox.graph_to_gdfs(G, nodes=False).iterrows():
@@ -346,12 +346,13 @@ if st.session_state.ruta_optimizada is not None:
         if st.button("🔄 Generar Atlas PDF"):
             with st.spinner("Descargando mapa de calles y generando 5 páginas... (Paciencia)"):
                 try:
-                    # Descargar grafo con un margen seguro
+                    # CORRECCIÓN DE ERROR AQUÍ: Usar bbox=(N,S,E,W) para OSMnx 2.0+
                     lats, lons = df['lat'].values, df['lon'].values
                     north, south = max(lats)+0.005, min(lats)-0.005
                     east, west = max(lons)+0.005, min(lons)-0.005
                     
-                    G = ox.graph_from_bbox(north, south, east, west, network_type='drive')
+                    # Llamada corregida
+                    G = ox.graph_from_bbox(bbox=(north, south, east, west), network_type='drive')
                     
                     pdf_atlas = crear_mapa_atlas(G, df, mostrar_nombres)
                     
